@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "354270424768",
+    "project_id": "fresh-harvest-1e72c",
+    "storage_bucket": "fresh-harvest-1e72c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:354270424768:android:28b83c78e2e9d3de080725",
+        "android_client_info": {
+          "package_name": "com.example.fresh_harvest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAA2wBkxzYRqaOc6o6mJuVsCm4QWrvf3rs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
