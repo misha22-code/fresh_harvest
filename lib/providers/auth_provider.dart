@@ -16,17 +16,11 @@ class AuthProvider extends ChangeNotifier {
     restoreSession();
   }
 
-  // ─── Login Methods ────────────────────────────────────────────────────────
-
-  void login(AppUser user) {
-    _currentUser = user;
-    _isAuthenticated = true;
-    notifyListeners();
-  }
+  // ─── Owner Login ─────────────────────────────────────────────────────────
 
   void signInAsOwner() {
     _currentUser = AppUser(
-      id: 'u2',
+      id: 'owner_123',
       name: 'Store Owner',
       email: 'owner@fresh.com',
       role: UserRole.owner,
@@ -35,11 +29,13 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ─── Customer Auto Login ────────────────────────────────────────────────
+
   void autoLoginAsCustomer() {
     _currentUser = AppUser(
-      id: 'u3',
-      name: 'Customer',
-      email: 'customer@fresh.com',
+      id: 'customer_123',
+      name: 'Guest User',
+      email: 'guest@fresh.com',
       role: UserRole.customer,
     );
     _isAuthenticated = true;
@@ -54,15 +50,20 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ✅ signOut method for compatibility
   void signOut() {
     logout();
   }
 
+  // ─── Session Restore ────────────────────────────────────────────────────
+
   void restoreSession() {
-    // Auto-login as customer for demo
+    // ✅ Auto-login as customer by default
     if (_currentUser == null) {
       autoLoginAsCustomer();
     }
   }
+
+  // ─── Check if User is Owner ─────────────────────────────────────────────
+
+  bool get isOwner => _currentUser?.isOwner ?? false;
 }

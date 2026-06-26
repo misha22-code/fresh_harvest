@@ -1,3 +1,4 @@
+// lib/widgets/skeleton_loader.dart
 import 'package:flutter/material.dart';
 import 'package:fresh_harvest/config/app_constants.dart';
 
@@ -14,7 +15,7 @@ class ShimmerBox extends StatefulWidget {
     super.key,
     required this.width,
     required this.height,
-    this.borderRadius = kBorderRadius,
+    this.borderRadius = kButtonRadius,
   });
 
   final double width;
@@ -141,6 +142,13 @@ class ProductGridSkeleton extends StatelessWidget {
   const ProductGridSkeleton({super.key, this.itemCount = 6});
 
   final int itemCount;
+
+  // ✅ FIXED: gridColumns method added
+  int gridColumns(double width) {
+    if (width < 600) return 2;
+    if (width < 900) return 3;
+    return 4;
+  }
 
   @override
   Widget build(BuildContext context) {

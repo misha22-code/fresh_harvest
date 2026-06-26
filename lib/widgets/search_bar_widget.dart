@@ -1,13 +1,9 @@
+// lib/widgets/search_bar_widget.dart
 import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:fresh_harvest/config/app_constants.dart';
 
-/// A premium search bar with 300 ms debounce.
-///
-/// - Beige fill, rounded corners, subtle shadow.
-/// - Prefix search icon; animated clear (✕) button when text is non-empty.
-/// - [onChanged] is called after the debounce interval — not on every keystroke.
 class SearchBarWidget extends StatefulWidget {
   const SearchBarWidget({
     super.key,
@@ -16,18 +12,15 @@ class SearchBarWidget extends StatefulWidget {
     this.onClear,
     this.initialValue,
     this.autofocus = false,
+    this.onVoiceSearch,  // ✅ Added
   });
 
   final String? hintText;
-
-  /// Called with the current text value after the 300 ms debounce window.
   final ValueChanged<String>? onChanged;
-
-  /// Called when the user taps the clear button (after the field is cleared).
   final VoidCallback? onClear;
-
   final String? initialValue;
   final bool autofocus;
+  final ValueChanged<String>? onVoiceSearch;  // ✅ Added
 
   @override
   State<SearchBarWidget> createState() => _SearchBarWidgetState();
@@ -39,6 +32,11 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
   Timer? _debounce;
   bool _isFocused = false;
 
+  // ✅ Voice Search
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+  bool _speechAvailable = false;
+
   static const _debounceDuration = Duration(milliseconds: 300);
 
   @override
@@ -49,6 +47,57 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
       ..addListener(() {
         setState(() => _isFocused = _focusNode.hasFocus);
       });
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    final available = await _speech.initialize(
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          if (mounted) setState(() => _isListening = false);
+        }
+      },
+      onError: (error) {
+        if (mounted) setState(() => _isListening = false);
+      },
+    );
+    if (mounted) setState(() => _speechAvailable = available);
+  }
+
+  void _toggleListening() async {
+    if (!_speechAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Voice search not available on this device.'),
+        ),
+      );
+      return;
+    }
+
+    if (_isListening) {
+      await _speech.stop();
+      if (mounted) setState(() => _isListening = false);
+      return;
+    }
+
+    setState(() => _isListening = true);
+
+    await _speech.listen(
+      localeId: 'en_US', // Supports both Urdu and English
+      onResult: (result) {
+        final text = result.recognizedWords;
+        _controller.text = text;
+        _controller.selection = TextSelection.fromPosition(
+          TextPosition(offset: text.length),
+        );
+        widget.onChanged?.call(text);
+        widget.onVoiceSearch?.call(text);
+
+        if (result.finalResult && mounted) {
+          setState(() => _isListening = false);
+        }
+      },
+    );
   }
 
   @override
@@ -56,6 +105,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
     _debounce?.cancel();
     _controller.dispose();
     _focusNode.dispose();
+    _speech.stop();
     super.dispose();
   }
 
@@ -64,7 +114,6 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
     _debounce = Timer(_debounceDuration, () {
       widget.onChanged?.call(value);
     });
-    // Trigger rebuild for clear button visibility.
     setState(() {});
   }
 
@@ -82,8 +131,8 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
 
     return Container(
       decoration: BoxDecoration(
-        color: kBeigeColor,
-        borderRadius: BorderRadius.circular(kBorderRadius),
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(kButtonRadius),
         border: Border.all(color: borderColor, width: 1.5),
         boxShadow: [
           BoxShadow(
@@ -93,40 +142,61 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
           ),
         ],
       ),
-      child: TextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        autofocus: widget.autofocus,
-        onChanged: _onTextChanged,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: kTextPrimary,
-        ),
-        decoration: InputDecoration(
-          hintText: widget.hintText ?? 'Search fruits & vegetables…',
-          hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: kTextSecondary,
+      child: Row(
+        children: [
+          // ─── Text Field ──────────────────────────────────────────────────
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              autofocus: widget.autofocus,
+              onChanged: _onTextChanged,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: kTextPrimary,
+              ),
+              decoration: InputDecoration(
+                hintText: widget.hintText ?? 'Search fruits & vegetables…',
+                hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: kTextSecondary,
+                ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: kTextSecondary,
+                ),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // ✅ Microphone Button
+                    if (_speechAvailable)
+                      IconButton(
+                        icon: Icon(
+                          _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                          color: _isListening ? Colors.red : kTextSecondary,
+                          size: 22,
+                        ),
+                        tooltip: 'Voice Search',
+                        onPressed: _toggleListening,
+                      ),
+                    if (_controller.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: kTextSecondary),
+                        tooltip: 'Clear',
+                        onPressed: _clearText,
+                      ),
+                  ],
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: kPadding,
+                  vertical: 14,
+                ),
+                filled: false,
+              ),
+            ),
           ),
-          prefixIcon: const Icon(
-            Icons.search_rounded,
-            color: kTextSecondary,
-          ),
-          suffixIcon: _controller.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.close_rounded, color: kTextSecondary),
-                  tooltip: 'Clear',
-                  onPressed: _clearText,
-                )
-              : null,
-          // Override theme borders so the container border handles focus state.
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: kPadding,
-            vertical: 14,
-          ),
-          filled: false,
-        ),
+        ],
       ),
     );
   }
